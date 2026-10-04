@@ -26,10 +26,14 @@
     <h1>Money<i>Money</i></h1>
     <p id="login-sub">Войдите, чтобы записи были одинаковыми на iPhone и Mac.</p>
     <input class="inp" id="l-email" type="email" autocomplete="username" placeholder="Почта" required>
+    <input class="inp" id="l-code" inputmode="numeric" autocomplete="one-time-code" placeholder="Код из письма" maxlength="10" hidden>
     <input class="inp" id="l-pass" type="password" autocomplete="current-password" placeholder="Пароль (не короче 6 символов)" minlength="6" required>
     <div class="err" id="l-err"></div>
     <button class="btn" id="l-go" type="submit">Войти</button>
+    <div class="note" id="l-info"></div>
     <button class="linkbtn" id="l-mode" type="button">Первый раз? Создать аккаунт</button>
+    <button class="linkbtn muted" id="l-forgot" type="button">Забыли пароль?</button>
+    <button class="linkbtn muted" id="l-resend" type="button" hidden>Отправить код ещё раз</button>
   </form>
 </div>
 
