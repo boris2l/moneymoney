@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.4';
+window.MM_VERSION='1.5';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -48,7 +48,7 @@ const ICONS = {
   dots:     {t:'Прочее',      d:'<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>'},
 };
 const ICON_RULES = [
-  [/продукт|супермаркет|магазин/, 'cart'], [/кафе|ресторан|кофе|еда|обед|доставк[аи] еды/, 'cup'],
+  [/кредит|ипотек|займ|заём|рассрочк|долг/, 'bank'], [/продукт|супермаркет|магазин/, 'cart'], [/кафе|ресторан|кофе|еда|обед|доставк[аи] еды/, 'cup'],
   [/такси|транспорт|метро|автобус|проезд/, 'bus'], [/бензин|топлив|заправ/, 'fuel'], [/авто|машин|парков/, 'car'],
   [/аренд/, 'key'], [/жиль|жкх|квартир|коммунал|ипотек/, 'home'],
   [/связь|телефон|интернет|мобил/, 'phone'], [/здоров|аптек|врач|медиц|лекар/, 'heart'], [/одежд|обув/, 'shirt'],
@@ -85,7 +85,7 @@ function defaults(){
       ...cat('personal','inc',['Зарплата','Из бизнеса','Подарки','Кэшбэк','Прочее']),
       ...cat('business','exp',['Закупка','Аренда','Зарплаты','Налоги и взносы','Реклама','Сервисы и софт','Логистика','Банк и комиссии','Связь','Прочее']),
       ...cat('business','inc',['Продажи','Услуги','Прочее']),
-    ]
+    ].reduce((arr,c)=>{ if(c.id==='pedb') arr.push({id:'pe_credit',space:'personal',type:'exp',name:'Кредиты'}); arr.push(c); return arr; },[])
   };
 }
 
@@ -285,6 +285,7 @@ function renderOps(){
     <div><div class="lbl">Расходы</div><div class="val num c-exp">${money(exp)}</div></div>
     <div><div class="lbl">Итог</div><div class="val num">${net>0?'+':''}${money(net)}</div></div>
   </div>${accStrip()}`;
+  html+=renderRecCard();
   if(!list.length){
     const never = !allTx().length;
     html+=`<div class="empty"><b>${never?'Записей пока нет':'В этом месяце пока пусто'}</b><span>Нажмите «+» внизу: сумма, категория — и готово. Можно складывать прямо в поле: 350+120.</span>${never?'<button class="add" data-import>Перенести записи из версии в Claude</button>':''}</div>`;
@@ -456,6 +457,7 @@ function renderSet(){
     <div class="set-list">${accs.map(({a,i})=>`<div class="set-row"><input class="inp" id="acc-n-${a.id}" data-acc="${i}" data-f="name" value="${esc(a.name)}" aria-label="Название счёта"><input class="inp num" id="acc-s-${a.id}" data-acc="${i}" data-f="start" inputmode="decimal" value="${esc(a.start||0)}" aria-label="Начальный остаток"><button class="del" data-delacc="${i}" aria-label="Убрать счёт" title="Убрать счёт">✕</button></div>`).join('')}</div>
     <button class="add" data-addacc>+ Добавить счёт</button>
   </div>
+  ${renderRecSettings()}
   ${['exp','inc'].map(t=>`<div class="card"><h3>Категории ${t==='exp'?'расходов':'доходов'} · ${SPACES[S.space]}</h3>
     <div class="set-list">${cats(t).map(({x,i})=>`<div class="set-row cat"><button class="cat-ic big" data-pickicon="${i}" style="background:${catColor(x.id)}" aria-label="Сменить иконку" title="Сменить иконку">${catIcon(x,20)}</button><input class="inp" id="cat-${x.id}" data-cat="${i}" value="${esc(x.name)}" aria-label="Название категории"><button class="del" data-delcat="${i}" aria-label="Удалить категорию" title="Удалить">✕</button></div>`).join('')}</div>
     <button class="add" data-addcat="${t}">+ Добавить категорию</button></div>`).join('')}
@@ -489,6 +491,136 @@ function openIconPicker(idx){
   requestAnimationFrame(()=>{ $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); });
 }
 
+/* ---------- обязательные платежи ---------- */
+let R=null;   // редактор платежа: {i (индекс или -1), t, name, amountStr, c, acc, day, until, armed}
+let RA=null;  // меню действий по платежу: {id, ym}
+function recAll(){ return cfg().recurring||[]; }
+function recById(id){ return recAll().find(r=>r.id===id); }
+function recDue(r, ym){ const [y,m]=ym.split('-').map(Number); const last=new Date(y,m,0).getDate(); return ym+'-'+pad(Math.min(Number(r.day)||1,last)); }
+function recActive(r, ym){ return (!r.start||ym>=r.start) && (!r.until||ym<=r.until); }
+function recTxId(r, ym){ return 'r_'+r.id+'_'+ym; }
+function recState(r, ym){
+  const t=L.tx[recTxId(r,ym)]; if(t && !t.deleted) return {st:'paid', tx:t};
+  if((r.skip||[]).includes(ym)) return {st:'skip'};
+  const due=recDue(r,ym), today=todayStr();
+  return {st: due<today?'late':(due===today?'today':'soon'), due};
+}
+function dayLabel(d){ const dt=new Date(d+'T12:00:00'); return dt.getDate()+' '+MONTHS_G[dt.getMonth()]; }
+function untilLabel(u){ if(!u) return ''; const [y,m]=u.split('-').map(Number); return 'до '+MONTHS[m-1]+' '+y; }
+function recSub(r, s){
+  const am=money(r.a);
+  if(s.st==='paid') return `${am} · оплачено ${dayLabel(s.tx.d)}`;
+  if(s.st==='skip') return `${am} · пропущен в этом месяце`;
+  if(s.st==='today') return `${am} · сегодня`;
+  if(s.st==='late'){ const days=Math.round((Date.parse(todayStr())-Date.parse(s.due))/864e5); return `${am} · просрочен на ${days} ${plural(days,'день','дня','дней')}`; }
+  return `${am} · до ${dayLabel(s.due)}`;
+}
+function plural(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11?a:(m10>=2&&m10<=4&&(m100<10||m100>=20)?b:c); }
+
+function recIcon(r,size){ const k=iconKeyFor({name:r.name,type:r.t}); return k!=='coin' ? iconSvg(k,size) : catIcon(catById(r.c),size); }
+function renderRecCard(){
+  const list=recAll().filter(r=>r.space===S.space && recActive(r,S.ym));
+  if(!list.length){
+    return recAll().some(r=>r.space===S.space) ? '' :
+      `<button class="rec-empty" data-recnew>+ Обязательные платежи: кредит, аренда, подписки — приложение напомнит об оплате</button>`;
+  }
+  const rows=list.map(r=>({r, s:recState(r,S.ym)}));
+  const order={late:0,today:1,soon:2,paid:3,skip:4};
+  rows.sort((a,b)=>order[a.s.st]-order[b.s.st] || recDue(a.r,S.ym).localeCompare(recDue(b.r,S.ym)));
+  const left=rows.filter(x=>x.s.st==='late'||x.s.st==='today'||x.s.st==='soon');
+  const leftSum=left.reduce((s,x)=>s+(x.r.t==='exp'?x.r.a:0),0);
+  const late=rows.filter(x=>x.s.st==='late').length;
+  const head = left.length ? `Осталось ${left.length} · ${money(leftSum)}${late?` · <span class="c-exp">просрочено ${late}</span>`:''}` : 'Всё оплачено';
+  return `<section class="card rec-card"><div class="card-h"><h3>Обязательные платежи</h3><button class="add" data-recnew>+ Добавить</button></div>
+    <div class="note">${head}</div>
+    <div class="rec-list">${rows.map(({r,s})=>{
+      const c=catById(r.c);
+      const btn = s.st==='paid' ? `<span class="rec-done">✓</span>` : s.st==='skip' ? `<span class="rec-done muted">—</span>` : `<button class="rec-pay" data-recpay="${esc(r.id)}">${r.t==='inc'?'Получено':'Оплатить'}</button>`;
+      return `<div class="rec-row st-${s.st}" data-recmenu="${esc(r.id)}" role="button" tabindex="0"><span class="cat-ic big" style="background:${catColor(r.c)}">${recIcon(r,20)}</span><span style="min-width:0"><div class="t">${esc(r.name)}</div><div class="s num">${recSub(r,s)}</div></span>${btn}</div>`;
+    }).join('')}</div></section>`;
+}
+
+function openSheetShell(){ $('#scrim').hidden=false; $('#sheet').hidden=false; requestAnimationFrame(()=>{ $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); }); }
+
+function payRec(id){
+  const r=recById(id); if(!r) return;
+  const s=recState(r,S.ym);
+  const d = ymOf(todayStr())===S.ym ? todayStr() : (s.due||recDue(r,S.ym));
+  RA=null; R=null; P=null;
+  F={t:r.t, amountStr:String(r.a).replace('.',','), c:r.c||'', acc:r.acc||'', to:'', d, n:r.name, editing:false, space:r.space, armed:false, presetId:recTxId(r,S.ym)};
+  openSheetShell(); renderSheet(false);
+}
+
+function openRecMenu(id){
+  const r=recById(id); if(!r) return; const s=recState(r,S.ym);
+  F=null; P=null; R=null; RA={id, ym:S.ym};
+  const m=MONTHS[Number(S.ym.slice(5))-1];
+  $('#sheet-in').innerHTML=`<div class="grab"></div>
+    <div class="sheet-head"><b style="font-size:17px">${esc(r.name)}</b><button class="iconbtn" data-close aria-label="Закрыть">✕</button></div>
+    <div class="note num">${recSub(r,s)} · каждое ${r.day}-е число${r.until?' · '+untilLabel(r.until):''}</div>
+    <div class="set-actions">
+      ${s.st==='paid' ? `<button class="btn ghost" data-recopen>Открыть операцию</button>` : s.st==='skip' ? `<button class="btn ghost" data-recunskip>Вернуть в список за ${m}</button>` : `<button class="btn" data-recpay="${esc(r.id)}">${r.t==='inc'?'Отметить получение':'Оплатить'}</button><button class="btn ghost" data-recskip>Пропустить в этом месяце (${m})</button>`}
+      <button class="btn ghost" data-recedit="${esc(r.id)}">Изменить платёж</button>
+    </div>`;
+  openSheetShell();
+}
+
+function openRecEditor(id){
+  const all=recAll(); const i=id?all.findIndex(r=>r.id===id):-1; const r=i>=0?all[i]:null;
+  F=null; P=null; RA=null;
+  const accs=cfg().accounts.filter(a=>a.space===S.space&&!a.archived);
+  R = r ? {i, t:r.t, name:r.name, amountStr:String(r.a).replace('.',','), c:r.c||'', acc:r.acc||'', day:String(r.day||1), until:r.until||'', space:r.space, armed:false}
+        : {i:-1, t:'exp', name:'', amountStr:'', c:'', acc:accs[0]?.id||'', day:String(new Date().getDate()), until:'', space:S.space, armed:false};
+  openSheetShell(); renderRecEditor(true);
+}
+function recEditorOk(){ const a=parseAmount(R.amountStr), d=Number(R.day); return R.name.trim() && a>0 && R.acc && R.c && d>=1 && d<=31; }
+function renderRecEditor(focus){
+  const c=cfg(); const cats=c.cats.filter(x=>x.space===R.space&&x.type===R.t); const accs=c.accounts.filter(a=>a.space===R.space&&!a.archived);
+  const now=new Date(); const years=[]; for(let y=now.getFullYear(); y<=now.getFullYear()+15; y++) years.push(y);
+  const [uy,um]=R.until?R.until.split('-'):['',''];
+  $('#sheet-in').innerHTML=`<div class="grab"></div>
+    <div class="sheet-head"><b style="font-size:17px">${R.i>=0?'Изменить платёж':'Новый обязательный платёж'}</b><button class="iconbtn" data-close aria-label="Закрыть">✕</button></div>
+    <div class="seg" role="group" aria-label="Тип"><button data-rt="exp" aria-pressed="${R.t==='exp'}">Платёж</button><button data-rt="inc" aria-pressed="${R.t==='inc'}">Регулярный доход</button></div>
+    <input class="inp" id="rec-name" placeholder="Название: кредит, аренда офиса, Netflix…" value="${esc(R.name)}" autocomplete="off">
+    <div class="amount"><input id="rec-amount" inputmode="decimal" autocomplete="off" placeholder="Сумма в месяц" value="${esc(R.amountStr)}" aria-label="Сумма"><span>₽</span></div>
+    <div><div class="field-l">Категория</div><div class="chips">${cats.map(x=>`<button class="chip" data-rc="${x.id}" aria-pressed="${R.c===x.id}"><span class="chip-ic" style="color:${catColor(x.id)}">${catIcon(x,16)}</span>${esc(x.name)}</button>`).join('')}</div></div>
+    <div><div class="field-l">Счёт</div><div class="chips">${accs.map(a=>`<button class="chip" data-racc="${a.id}" aria-pressed="${R.acc===a.id}">${esc(a.name)}</button>`).join('')}</div></div>
+    <div class="rec-grid">
+      <label><div class="field-l">День оплаты</div><input class="inp num" id="rec-day" inputmode="numeric" value="${esc(R.day)}" aria-label="День месяца"></label>
+      <label><div class="field-l">Последний платёж</div><div class="drow">
+        <select class="inp" id="rec-um" aria-label="Месяц окончания"><option value="">Без срока</option>${MONTHS.map((m,i)=>`<option value="${pad(i+1)}" ${um===pad(i+1)?'selected':''}>${m}</option>`).join('')}</select>
+        <select class="inp" id="rec-uy" aria-label="Год окончания" ${um?'':'hidden'}>${years.map(y=>`<option ${String(y)===uy?'selected':''}>${y}</option>`).join('')}</select></div></label>
+    </div>
+    <div class="note">Если в месяце меньше дней (например, 31-е в феврале), платёж будет в последний день месяца. Для кредита укажите месяц последнего платежа — после него напоминания прекратятся.</div>
+    <div class="btns">
+      ${R.i>=0?`<button class="btn danger" data-recdel>${R.armed?'Точно удалить?':'Удалить'}</button>`:''}
+      <button class="btn" data-recsave ${recEditorOk()?'':'disabled'}>Сохранить</button>
+    </div>`;
+  if(focus && R.i<0) setTimeout(()=>{ const i=$('#rec-name'); i&&i.focus(); },60);
+}
+function recEditorRefresh(){ const b=document.querySelector('[data-recsave]'); if(b) b.disabled=!recEditorOk(); }
+function saveRec(){
+  if(!recEditorOk()) return;
+  const c=structuredClone(cfg()); c.recurring=c.recurring||[];
+  const body={t:R.t, name:R.name.trim(), a:parseAmount(R.amountStr), c:R.c, acc:R.acc, day:Math.min(31,Math.max(1,Number(R.day)||1)), until:R.until||'', space:R.space};
+  if(R.i>=0){ const old=c.recurring[R.i]; c.recurring[R.i]={...old, ...body}; }
+  else c.recurring.push({id:'r'+uid(), start:ymOf(todayStr()), skip:[], ...body});
+  const isNew=R.i<0; closeSheet(); setConfig(c); toast(isNew?'Платёж добавлен':'Платёж сохранён');
+}
+function setRecSkip(id, ym, on){
+  const c=structuredClone(cfg()); const r=(c.recurring||[]).find(x=>x.id===id); if(!r) return;
+  r.skip=(r.skip||[]).filter(x=>x!==ym); if(on) r.skip.push(ym);
+  closeSheet(); setConfig(c); toast(on?'Пропущено в этом месяце':'Возвращено в список');
+}
+function renderRecSettings(){
+  const list=recAll().filter(r=>r.space===S.space);
+  return `<div class="card"><h3>Обязательные платежи · ${SPACES[S.space]}</h3>
+    <div class="note">Кредиты, аренда, подписки, зарплаты. Каждый месяц они появляются на главном экране с кнопкой «Оплатить».</div>
+    ${list.length?`<div class="rec-list">${list.map(r=>`<div class="rec-row" data-recedit="${esc(r.id)}" role="button" tabindex="0"><span class="cat-ic big" style="background:${catColor(r.c)}">${recIcon(r,20)}</span><span style="min-width:0"><div class="t">${esc(r.name)}</div><div class="s num">${money(r.a)} · ${r.day}-го числа${r.until?' · '+untilLabel(r.until):''}${r.t==='inc'?' · доход':''}</div></span><span class="rec-chev">›</span></div>`).join('')}</div>`:''}
+    <button class="add" data-recnew>+ Добавить платёж</button>
+  </div>`;
+}
+
 /* ---------- sheet (quick entry) ---------- */
 let F=null;
 function openSheet(edit){
@@ -506,10 +638,10 @@ function openSheet(edit){
   renderSheet(true);
 }
 function closeSheet(){
-  P=null;
+  P=null; R=null; RA=null;
   $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on');
   F=null;
-  setTimeout(()=>{ if(!F){ $('#scrim').hidden=true; $('#sheet').hidden=true; } },220);
+  setTimeout(()=>{ if(!F && P===null && !R && !RA){ $('#scrim').hidden=true; $('#sheet').hidden=true; } },220);
 }
 function parseAmount(s){
   s=String(s||'').replace(/\s| | /g,'').replace(/,/g,'.');
@@ -568,7 +700,7 @@ function refreshSheetState(){
 function saveSheet(){
   if(!refreshSheetState()) return;
   const amt=parseAmount(F.amountStr);
-  const id=F.editing?F.origId:uid();
+  const id=F.editing?F.origId:(F.presetId||uid());
   const sp=accById(F.acc)?.space||F.space;
   const tx={id, space:sp, t:F.t, a:amt, acc:F.acc, d:F.d, n:(F.n||'').trim(), ts:F.ts||Date.now()};
   if(F.t==='tr') tx.to=F.to; else tx.c=F.c;
@@ -679,7 +811,7 @@ $('#login-form').addEventListener('submit', async e=>{
 
 /* ---------- events ---------- */
 document.addEventListener('click', e=>{
-  const t=e.target.closest('button, rect.hit'); if(!t || t.closest('#login')) return;
+  const t=e.target.closest('button, rect.hit, [data-recmenu], [data-recedit]'); if(!t || t.closest('#login')) return;
   const ds=t.dataset;
   if(t.closest('.seg.space') && ds.space){ S.space=ds.space; ls.set('space',S.space); S.repSel=null; render(); return; }
   if(t.closest('.nav') && ds.tab){ S.tab=ds.tab; ls.set('tab',S.tab); render(); window.scrollTo(0,0); return; }
@@ -693,6 +825,29 @@ document.addEventListener('click', e=>{
   if(ds.v2){ S.rv2=ds.v2; ls.set('rv2',S.rv2); render(); return; }
   if(ds.pickicon!==undefined){ openIconPicker(+ds.pickicon); return; }
   if(ds.icon && P!==null){ const c=structuredClone(cfg()); c.cats[P].icon=ds.icon; P=null; closeSheet(); setConfig(c); return; }
+  if(ds.recnew!==undefined){ openRecEditor(null); return; }
+  if(ds.recpay){ payRec(ds.recpay); return; }
+  if(ds.recedit){ openRecEditor(ds.recedit); return; }
+  if(ds.recmenu){ openRecMenu(ds.recmenu); return; }
+  if(RA && t.closest('#sheet')){
+    if('close' in ds){ closeSheet(); return; }
+    if('recskip' in ds){ setRecSkip(RA.id,RA.ym,true); return; }
+    if('recunskip' in ds){ setRecSkip(RA.id,RA.ym,false); return; }
+    if('recopen' in ds){ const tx=L.tx['r_'+RA.id+'_'+RA.ym]; closeSheet(); setTimeout(()=>{ if(tx) openSheet(tx); },240); return; }
+    return;
+  }
+  if(R && t.closest('#sheet')){
+    if('close' in ds){ closeSheet(); return; }
+    if(ds.rt){ R.t=ds.rt; R.c=''; renderRecEditor(); return; }
+    if(ds.rc){ R.c=ds.rc; renderRecEditor(); return; }
+    if(ds.racc){ R.acc=ds.racc; renderRecEditor(); return; }
+    if('recsave' in ds){ saveRec(); return; }
+    if('recdel' in ds){
+      if(!R.armed){ R.armed=true; renderRecEditor(); return; }
+      const c=structuredClone(cfg()); c.recurring.splice(R.i,1); closeSheet(); setConfig(c); toast('Платёж удалён'); return;
+    }
+    return;
+  }
   if(P!==null && 'close' in ds){ P=null; closeSheet(); return; }
   if(F && t.closest('#sheet')){
     if('close' in ds){ closeSheet(); return; }
@@ -732,7 +887,18 @@ document.addEventListener('click', e=>{
     const c=structuredClone(cfg()); c.cats.splice(+ds.delcat,1); setConfig(c); toast('Категория удалена'); return;
   }
 });
+function recInput(e){
+  if(!R) return false; const t=e.target;
+  if(t.id==='rec-name'){ R.name=t.value; }
+  else if(t.id==='rec-amount'){ R.amountStr=t.value; }
+  else if(t.id==='rec-day'){ R.day=t.value.replace(/\D/g,''); }
+  else if(t.id==='rec-um'||t.id==='rec-uy'){ const um=$('#rec-um').value, yEl=$('#rec-uy'); yEl.hidden=!um; R.until= um ? (yEl.value||String(new Date().getFullYear()))+'-'+um : ''; }
+  else return false;
+  recEditorRefresh(); return true;
+}
+document.addEventListener('change', e=>{ recInput(e); });
 document.addEventListener('input', e=>{
+  if(recInput(e)) return;
   const t=e.target;
   if(F && t.id==='f-amount'){ F.amountStr=t.value; refreshSheetState(); return; }
   if(F && t.id==='f-note'){ F.n=t.value; return; }
