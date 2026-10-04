@@ -168,3 +168,12 @@ body{overscroll-behavior-y:none}
 .set-actions{display:flex;flex-direction:column;gap:8px}
 .linkbtn.muted{color:var(--muted);font-weight:500}
 #l-code{letter-spacing:.3em;font-size:20px;text-align:center}
+/* v1.2: переключатель разделов отдельной строкой во всю ширину; поля ввода 16px, чтобы iPhone не увеличивал масштаб */
+.seg.space{width:100%}
+.seg.space button{flex:1;padding:10px 12px;font-size:15px}
+.wrap{gap:14px}
+html,body{overflow-x:hidden;max-width:100%}
+input,select,textarea{font-size:16px}
+.amount input{font-size:34px}
+@media (max-width:400px){.sync span{display:inline}}
+@media (max-width:340px){.sync span{display:none}}
