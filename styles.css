@@ -148,7 +148,6 @@ button{cursor:pointer;border:0;background:none}
 /* --- standalone app additions --- */
 html{-webkit-text-size-adjust:100%}
 html,body{margin:0;min-height:100%}
-body{overscroll-behavior-y:none}
 .wrap{padding-top:calc(12px + env(safe-area-inset-top,0px))}
 .top-r{display:flex;align-items:center;gap:10px}
 .sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
@@ -172,7 +171,6 @@ body{overscroll-behavior-y:none}
 .seg.space{width:100%}
 .seg.space button{flex:1;padding:10px 12px;font-size:15px}
 .wrap{gap:14px}
-html,body{overflow-x:hidden;max-width:100%}
 input,select,textarea{font-size:16px}
 .amount input{font-size:34px}
 @media (max-width:400px){.sync span{display:inline}}
@@ -209,3 +207,5 @@ input,select,textarea{font-size:16px}
 .icon-opt[aria-pressed="true"]{color:var(--ink);font-weight:600}
 .icon-opt:hover{background:var(--surface-2)}
 .chart svg{overflow:visible}
+/* v1.3.1: прокрутка тачпадом в Safari на Mac — не делаем body контейнером прокрутки */
+body{overflow-x:clip}

@@ -1,5 +1,5 @@
 // MoneyMoney service worker: приложение открывается и без интернета.
-const VERSION = 'mm-v4';
+const VERSION = 'mm-v5';
 const CORE = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
