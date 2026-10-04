@@ -1,5 +1,6 @@
 (() => {
 'use strict';
+window.MM_VERSION='1.1';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -435,9 +436,10 @@ async function importFile(file){
 }
 
 /* ---------- login ---------- */
-let signupMode=false;
+let mode='login'; // login | signup | reset1 | reset2
 function showLogin(msg){
   $('#main').hidden=true; $('#login').hidden=false;
+  setMode('login');
   if(msg) $('#l-err').textContent=msg;
   if(AUTH?.user?.email) $('#l-email').value=AUTH.user.email;
 }
@@ -448,33 +450,63 @@ async function showMain(){
   else { L=emptyLocal(); L.userId=AUTH.user.id; }
   render(); sync();
 }
-$('#l-mode').addEventListener('click',()=>{
-  signupMode=!signupMode;
-  $('#l-go').textContent=signupMode?'Создать аккаунт':'Войти';
-  $('#l-mode').textContent=signupMode?'Уже есть аккаунт? Войти':'Первый раз? Создать аккаунт';
-  $('#l-pass').autocomplete=signupMode?'new-password':'current-password';
-  $('#l-err').textContent='';
-});
+function setMode(m){
+  mode=m;
+  const sub={login:'Войдите, чтобы записи были одинаковыми на iPhone и Mac.', signup:'Придумайте пароль — им вы будете входить на всех устройствах.',
+    reset1:'Введите почту — пришлём код для сброса пароля.', reset2:'Мы отправили код на вашу почту. Введите его и придумайте новый пароль.'}[m];
+  $('#login-sub').textContent=sub;
+  $('#l-email').readOnly = m==='reset2';
+  $('#l-pass').hidden = m==='reset1'; $('#l-pass').required = m!=='reset1';
+  $('#l-pass').placeholder = m==='reset2'?'Новый пароль (не короче 6 символов)':'Пароль (не короче 6 символов)';
+  $('#l-pass').autocomplete = m==='login'?'current-password':'new-password';
+  $('#l-code').hidden = m!=='reset2'; $('#l-code').required = m==='reset2';
+  $('#l-go').textContent = {login:'Войти', signup:'Создать аккаунт', reset1:'Получить код', reset2:'Сохранить пароль и войти'}[m];
+  $('#l-mode').textContent = m==='login'?'Первый раз? Создать аккаунт':(m==='signup'?'Уже есть аккаунт? Войти':'Вспомнили пароль? Войти');
+  $('#l-forgot').hidden = m!=='login';
+  $('#l-resend').hidden = m!=='reset2';
+  $('#l-err').textContent=''; $('#l-info').textContent='';
+}
+$('#l-mode').addEventListener('click',()=> setMode(mode==='login'?'signup':'login'));
+$('#l-forgot').addEventListener('click',()=> setMode('reset1'));
+$('#l-resend').addEventListener('click', async ()=>{ try{ await http('/auth/v1/recover',{method:'POST', body:{email:$('#l-email').value.trim()}}); $('#l-info').textContent='Отправили новый код.'; }catch(err){ $('#l-err').textContent=authErr(err); } });
+function authErr(err){
+  const m=String(err.message||'');
+  return err instanceof TypeError ? 'Нет интернета. Для входа нужна связь.' :
+    /invalid login|invalid_credentials/i.test(m) ? 'Неверная почта или пароль.' :
+    /already registered|already exists/i.test(m) ? 'Такой аккаунт уже есть — нажмите «Войти».' :
+    /signups? not allowed|disabled/i.test(m) ? 'Регистрация новых аккаунтов выключена.' :
+    /expired|invalid|otp|token/i.test(m) && mode==='reset2' ? 'Код неверный или устарел. Нажмите «Отправить код ещё раз».' :
+    /rate limit|security purposes|seconds/i.test(m) ? 'Слишком часто. Подождите минуту и попробуйте снова.' :
+    /should be different|same password/i.test(m) ? 'Новый пароль должен отличаться от старого.' :
+    /password/i.test(m) ? 'Пароль слишком простой: нужно не меньше 6 символов.' : ('Не получилось: '+m);
+}
 $('#login-form').addEventListener('submit', async e=>{
   e.preventDefault();
   if(!SB_URL||!SB_KEY){ $('#l-err').textContent='Приложение ещё не подключено к базе данных.'; return; }
   const email=$('#l-email').value.trim(), password=$('#l-pass').value;
-  const btn=$('#l-go'); btn.disabled=true; $('#l-err').textContent='';
+  const btn=$('#l-go'); btn.disabled=true; $('#l-err').textContent=''; $('#l-info').textContent='';
   try{
     let d;
-    if(signupMode){
+    if(mode==='reset1'){
+      await http('/auth/v1/recover',{method:'POST', body:{email}});
+      setMode('reset2'); setTimeout(()=>$('#l-code').focus(),50); return;
+    }
+    if(mode==='reset2'){
+      const token=$('#l-code').value.replace(/\D/g,'');
+      d=await http('/auth/v1/verify',{method:'POST', body:{type:'recovery', email, token}});
+      saveAuth(d);
+      await http('/auth/v1/user',{method:'PUT', token:AUTH.access_token, body:{password}});
+      $('#l-code').value=''; $('#l-pass').value=''; toast('Пароль изменён');
+      await showMain(); return;
+    }
+    if(mode==='signup'){
       d=await http('/auth/v1/signup',{method:'POST', body:{email,password}});
-      if(!d.access_token){ $('#l-err').textContent='Аккаунт создан, но нужно подтвердить почту. Откройте письмо от Supabase и затем войдите.'; return; }
+      if(!d.access_token){ $('#l-err').textContent='Аккаунт создан, но нужно подтвердить почту. Откройте письмо и затем войдите.'; return; }
     } else d=await http('/auth/v1/token?grant_type=password',{method:'POST', body:{email,password}});
     saveAuth(d); $('#l-pass').value='';
     await showMain();
   }catch(err){
-    const m=String(err.message||'');
-    $('#l-err').textContent = err instanceof TypeError ? 'Нет интернета. Для первого входа нужна связь.' :
-      /invalid login|invalid_credentials/i.test(m) ? 'Неверная почта или пароль.' :
-      /already registered|already exists/i.test(m) ? 'Такой аккаунт уже есть — нажмите «Войти».' :
-      /signups? not allowed|disabled/i.test(m) ? 'Регистрация новых аккаунтов выключена.' :
-      /password/i.test(m) ? 'Пароль слишком простой: нужно не меньше 6 символов.' : ('Не получилось: '+m);
+    $('#l-err').textContent=authErr(err);
   }finally{ btn.disabled=false; }
 });
 
