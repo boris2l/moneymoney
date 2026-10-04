@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.2';
+window.MM_VERSION='1.3';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -11,6 +11,64 @@ const MONTHS_G = ['января','февраля','марта','апреля','�
 const MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 const WD = ['вс','пн','вт','ср','чт','пт','сб'];
 const CAT_COLORS = ['#2F5BD8','#1F8A57','#C2412F','#A8640F','#7A4BC9','#0E8A9A','#C23B7A','#5F7A1E','#B55A12','#3E6C8F','#8A5A44','#6B7280'];
+/* ---------- иконки категорий (свой минималистичный набор, линия 1.8px) ---------- */
+const ICONS = {
+  cart:     {t:'Покупки',     d:'<path d="M3 4h2l2.3 10.1a1 1 0 0 0 1 .9h8.6a1 1 0 0 0 1-.8L20 8H6.3"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/>'},
+  cup:      {t:'Кафе',        d:'<path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5M12 3.5v2.5"/>'},
+  bus:      {t:'Транспорт',   d:'<rect x="4.5" y="3.5" width="15" height="13.5" rx="3"/><path d="M4.5 10.5h15M8 13.8h.01M16 13.8h.01M7.5 17v3M16.5 17v3"/>'},
+  car:      {t:'Авто',        d:'<path d="M5 12.5 7 7h10l2 5.5"/><rect x="3.5" y="12.5" width="17" height="5" rx="1.5"/><path d="M6.5 17.5v2.5M17.5 17.5v2.5M7 15h.01M17 15h.01"/>'},
+  fuel:     {t:'Топливо',     d:'<path d="M5 21V5a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14 5v16M3.5 21h12M7.5 8h4"/><path d="M14 10h1.5A1.5 1.5 0 0 1 17 11.5v4a1.5 1.5 0 0 0 3 0V8.5L17.5 6"/>'},
+  home:     {t:'Дом',         d:'<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/>'},
+  key:      {t:'Аренда',      d:'<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16.5 6.5l2.5 2.5M14.5 8.5l2 2"/>'},
+  phone:    {t:'Связь',       d:'<rect x="7" y="3" width="10" height="18" rx="2.2"/><path d="M11 17.5h2"/>'},
+  heart:    {t:'Здоровье',    d:'<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>'},
+  shirt:    {t:'Одежда',      d:'<path d="M8.5 4 3.5 6.8l1.8 4 2.7-1.1V20h8V9.7l2.7 1.1 1.8-4L15.5 4a3.5 3.5 0 0 1-7 0z"/>'},
+  ticket:   {t:'Развлечения', d:'<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4V7.5z"/><path d="M14.5 6v2M14.5 11v2M14.5 16v2"/>'},
+  repeat:   {t:'Подписки',    d:'<path d="M17 3l3 3-3 3"/><path d="M4 11V9.5A3.5 3.5 0 0 1 7.5 6H20"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v1.5a3.5 3.5 0 0 1-3.5 3.5H4"/>'},
+  gift:     {t:'Подарки',     d:'<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5.5 12v8h13v-8M12 8v12"/><path d="M12 8C11 5.5 9.8 4 8.3 4a2 2 0 0 0 0 4M12 8c1-2.5 2.2-4 3.7-4a2 2 0 0 1 0 4"/>'},
+  book:     {t:'Обучение',    d:'<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5h12v14h-12a2 2 0 0 0-2 2v-14z"/><path d="M4.5 19.5a2 2 0 0 0 2 2h12v-4"/><path d="M9 8h5"/>'},
+  wallet:   {t:'Зарплата',    d:'<path d="M17.5 7V5.5a1.5 1.5 0 0 0-1.5-1.5H6A2.5 2.5 0 0 0 3.5 6.5"/><path d="M3.5 6.5v11A2.5 2.5 0 0 0 6 20h13a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 19 7H6A2.5 2.5 0 0 1 3.5 6.5z"/><path d="M16.5 13.5h.01"/>'},
+  briefcase:{t:'Бизнес',      d:'<rect x="3.5" y="7" width="17" height="13" rx="2"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17"/>'},
+  percent:  {t:'Кэшбэк',      d:'<path d="M18.5 5.5l-13 13"/><circle cx="7.5" cy="7.5" r="2.3"/><circle cx="16.5" cy="16.5" r="2.3"/>'},
+  box:      {t:'Закупка',     d:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4v-9z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>'},
+  users:    {t:'Сотрудники',  d:'<circle cx="9" cy="8.5" r="3.3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15.5 5.2a3.3 3.3 0 0 1 0 6.6M17 14.3a6 6 0 0 1 4 5.7"/>'},
+  receipt:  {t:'Налоги',      d:'<path d="M6 3h12v18l-2.5-1.6L13 21l-2.5-1.6L8 21l-2-1.3V3z"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/>'},
+  megaphone:{t:'Реклама',     d:'<path d="M3.5 10.2v3.6a1 1 0 0 0 1 1H7l8.5 4.2V5L7 9.2H4.5a1 1 0 0 0-1 1z"/><path d="M18.5 9a3.5 3.5 0 0 1 0 6M7 14.8 8.2 20h2.3"/>'},
+  cloud:    {t:'Сервисы',     d:'<path d="M7 18.5a4 4 0 0 1-.7-7.9A6 6 0 0 1 17.8 9.3 4.6 4.6 0 0 1 17.3 18.5H7z"/>'},
+  truck:    {t:'Доставка',    d:'<path d="M3 6h10.5v10H3z"/><path d="M13.5 9.5h4l3 3.5v3h-7"/><circle cx="7" cy="17.8" r="1.8"/><circle cx="17" cy="17.8" r="1.8"/>'},
+  bank:     {t:'Банк',        d:'<path d="M3.5 9 12 4.5 20.5 9"/><path d="M5.5 10.5v6.5M10 10.5v6.5M14 10.5v6.5M18.5 10.5v6.5M3.5 20h17"/>'},
+  trend:    {t:'Продажи',     d:'<path d="M3.5 17 9 11.5l4 4 7.5-7.5"/><path d="M15 8h5.5v5.5"/>'},
+  wrench:   {t:'Услуги',      d:'<path d="M14.6 4.2a4.5 4.5 0 0 0-5.3 6L4 15.5a2.1 2.1 0 0 0 3 3l5.3-5.3a4.5 4.5 0 0 0 6-5.3l-2.8 2.8-2.7-.5-.5-2.7 2.3-3.3z"/>'},
+  plane:    {t:'Путешествия', d:'<path d="M10.5 13.5 4 16v-2l6.5-4.5V5.2a1.5 1.5 0 0 1 3 0v4.3L20 14v2l-6.5-2.5v4l2 1.5v1.5l-3.5-1-3.5 1V19l2-1.5v-4z"/>'},
+  dumbbell: {t:'Спорт',       d:'<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>'},
+  sparkle:  {t:'Красота',     d:'<path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.9L12 18.5l-1.8-5.8L4.5 10.8 10.2 9 12 3.5z"/><path d="M18.5 16.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/>'},
+  paw:      {t:'Питомцы',     d:'<circle cx="5.8" cy="10.3" r="1.5"/><circle cx="9.6" cy="5.8" r="1.5"/><circle cx="14.4" cy="5.8" r="1.5"/><circle cx="18.2" cy="10.3" r="1.5"/><path d="M12 11.5c-2.6 0-5 3.5-5 5.6 0 1.6 1.3 2.4 2.6 2.4 1 0 1.5-.5 2.4-.5s1.4.5 2.4.5c1.3 0 2.6-.8 2.6-2.4 0-2.1-2.4-5.6-5-5.6z"/>'},
+  child:    {t:'Дети',        d:'<circle cx="12" cy="5.5" r="2.3"/><path d="M7 10.5h10M12 10.5V15M9.5 20.5 12 15l2.5 5.5"/>'},
+  coin:     {t:'Деньги',      d:'<circle cx="12" cy="12" r="8.5"/><path d="M10 8.5h3a2.2 2.2 0 0 1 0 4.4H10M10 8.5V16M8.5 14.5H13"/>'},
+  dots:     {t:'Прочее',      d:'<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>'},
+};
+const ICON_RULES = [
+  [/продукт|супермаркет|магазин/, 'cart'], [/кафе|ресторан|кофе|еда|обед|доставк[аи] еды/, 'cup'],
+  [/такси|транспорт|метро|автобус|проезд/, 'bus'], [/бензин|топлив|заправ/, 'fuel'], [/авто|машин|парков/, 'car'],
+  [/аренд/, 'key'], [/жиль|жкх|квартир|коммунал|ипотек/, 'home'],
+  [/связь|телефон|интернет|мобил/, 'phone'], [/здоров|аптек|врач|медиц|лекар/, 'heart'], [/одежд|обув/, 'shirt'],
+  [/развлеч|кино|отдых|хобби|игр/, 'ticket'], [/подписк/, 'repeat'], [/подар/, 'gift'], [/образов|курс|книг|учеб/, 'book'],
+  [/кэшб|кешб|процент|вклад/, 'percent'], [/из бизнес|бизнес/, 'briefcase'], [/закуп|товар|сырь|материал/, 'box'],
+  [/налог|взнос|пошлин/, 'receipt'], [/реклам|маркет|продвиж/, 'megaphone'], [/сервис|софт|програм|хостинг/, 'cloud'],
+  [/логист|достав|курьер/, 'truck'], [/банк|комисс|эквайр/, 'bank'], [/продаж|выручк/, 'trend'], [/услуг|ремонт/, 'wrench'],
+  [/путеш|отпуск|билет|перел/, 'plane'], [/спорт|фитнес|зал/, 'dumbbell'], [/красот|салон|космет/, 'sparkle'],
+  [/питом|животн|корм/, 'paw'], [/дет|ребен|ребён|школ|сад/, 'child'], [/прочее|другое|разное/, 'dots'],
+];
+function iconKeyFor(cat){
+  if(!cat) return 'dots';
+  if(cat.icon && ICONS[cat.icon]) return cat.icon;
+  const n=String(cat.name||'').toLowerCase();
+  if(/зарплат|оклад|аванс/.test(n)) return cat.type==='exp' ? 'users' : 'wallet';
+  for(const [re,k] of ICON_RULES) if(re.test(n)) return k;
+  return 'coin';
+}
+function iconSvg(key, size){ const ic=ICONS[key]||ICONS.coin; return `<svg class="ic" width="${size||20}" height="${size||20}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic.d}</svg>`; }
+function catIcon(cat, size){ return iconSvg(iconKeyFor(cat), size); }
 
 function defaults(){
   let i=0; const id=()=> 'd'+(i++).toString(36);
@@ -59,7 +117,7 @@ const ymOf = d => String(d).slice(0,7);
 const emptyLocal = () => ({tx:{}, config:null, lastPull:null, outbox:{}, configDirty:false, userId:null});
 let L = emptyLocal();
 let AUTH = ls.get('mm_auth', null);
-const S = { space: ls.get('space','personal'), ym: todayStr().slice(0,7), tab: ls.get('tab','ops'), repKind:'exp', repSel:null,
+const S = { space: ls.get('space','personal'), ym: todayStr().slice(0,7), tab: ls.get('tab','ops'), repKind:'exp', repSel:null, rv1: ls.get('rv1','bar'), rv2: ls.get('rv2','bar'),
   sync:'off', syncMsg:'', loaded:false };
 
 let persistT=null;
@@ -249,50 +307,141 @@ function rowHtml(t){
     const cross = acc&&to&&acc.space!==to.space;
     title='Перевод'; sub=`${esc(acc?.name||'?')} → ${esc(to?.name||'?')}${cross?' · '+(incoming?'из «'+SPACES[acc.space]+'»':'в «'+SPACES[to.space]+'»'):''}`;
     amt = cross ? (incoming?'+':'−')+money(t.a) : money(t.a);
-    cls = cross ? (incoming?'c-inc':'c-exp') : ''; color='var(--muted)'; letter='⇄';
+    cls = cross ? (incoming?'c-inc':'c-exp') : ''; color='var(--muted)'; letter=iconSvg('repeat',19);
   } else {
     const c=catById(t.c); title=esc(c?.name||'Без категории'); sub=esc(acc?.name||'');
-    amt=(t.t==='inc'?'+':'−')+money(t.a); cls=t.t==='inc'?'c-inc':''; color=catColor(t.c); letter=esc((c?.name||'?')[0]);
+    amt=(t.t==='inc'?'+':'−')+money(t.a); cls=t.t==='inc'?'c-inc':''; color=catColor(t.c); letter=catIcon(c,19);
   }
   if(t.n) sub+= (sub?' · ':'')+esc(t.n);
   return `<button class="row" data-edit="${esc(t.id)}"><span class="dot" style="background:${color}">${letter}</span><span style="min-width:0"><div class="t">${title}</div><div class="s">${sub}</div></span><span class="a num ${cls}">${amt}</span></button>`;
 }
 
 function niceStep(x){ if(x<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; }
+function viewSeg(attr, cur){
+  const opts=[['bar','Столбцы'],['line','График'],['pie','Круговая']];
+  return `<div class="seg vseg" role="group" aria-label="Вид">${opts.map(([k,l])=>`<button ${attr}="${k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`;
+}
+const SLOTS=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+function axisFrame(W,H,Lp,R,T,B,top,step,yms,sel,gw){
+  const ph=H-T-B, y=v=>T+ph-(v/top)*ph; let g='';
+  for(let v=0; v<=top+1e-9; v+=step){ g+=`<line class="gr" x1="${Lp}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${Lp-8}" y="${y(v)+4}" text-anchor="end">${compact(v)}</text>`; }
+  yms.forEach((ym,i)=>{ const cx=Lp+gw*i+gw/2; const m=Number(ym.slice(5))-1;
+    g+=`<text class="ax" x="${cx}" y="${H-8}" text-anchor="middle" ${ym===sel?'style="fill:var(--ink);font-weight:600"':''}>${MONTHS_S[m]}</text>`; });
+  return {g,y};
+}
+function selBand(Lp,T,ph,gw,i){ return `<rect class="sel" x="${Lp+gw*i+4}" y="${T}" width="${gw-8}" height="${ph}" rx="8"/>`; }
+function hitBands(Lp,H,gw,yms,titleFn){ return yms.map((ym,i)=>`<rect class="hit" data-ym="${ym}" x="${Lp+gw*i}" y="0" width="${gw}" height="${H}"><title>${titleFn(ym)}</title></rect>`).join(''); }
+function linePath(pts){ return pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '); }
+function marker(x,y,shape,color){ /* r 4 */
+  return shape==='sq' ? `<rect x="${x-4.5}" y="${y-4.5}" width="9" height="9" rx="1.5" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`
+                      : `<circle cx="${x}" cy="${y}" r="5" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`;
+}
+function donut(slices, center){
+  // slices: [{v, color, title}]
+  const tot=slices.reduce((s,x)=>s+x.v,0); const S=220, cx=S/2, cy=S/2, r=80, sw=30;
+  let g=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>`;
+  const live=slices.filter(x=>x.v>0);
+  if(live.length===1){ g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${live[0].color}" stroke-width="${sw}"><title>${live[0].title}</title></circle>`; }
+  else { let a=-Math.PI/2; const gap=0.035;
+    for(const s of live){ const da=s.v/tot*Math.PI*2; const a0=a+gap/2, a1=a+da-gap/2; a+=da; if(a1<=a0) continue;
+      const p=(t)=>[cx+r*Math.cos(t), cy+r*Math.sin(t)];
+      const [x0,y0]=p(a0), [x1,y1]=p(a1); const large=(a1-a0)>Math.PI?1:0;
+      g+=`<path d="M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${large} 1 ${x1.toFixed(2)},${y1.toFixed(2)}" fill="none" stroke="${s.color}" stroke-width="${sw}"><title>${s.title}</title></path>`; } }
+  g+=`<text x="${cx}" y="${cy-6}" text-anchor="middle" class="d-l">${center[0]}</text><text x="${cx}" y="${cy+18}" text-anchor="middle" class="d-v">${center[1]}</text>`;
+  return `<svg class="donut" viewBox="0 0 ${S} ${S}" role="img" aria-label="${center[0]}">${g}</svg>`;
+}
+function legendRows(items){ // items: [{color, icon, name, v, pct}]
+  return `<div class="brk lg">${items.map(it=>`<div class="lg-it"><span class="lg-sw" style="background:${it.color}">${it.icon||''}</span><span class="nm">${it.name}</span><span class="vl num">${money(it.v)}${it.pct!=null?`<small>${it.pct}%</small>`:''}</span></div>`).join('')}</div>`;
+}
+
 function renderRep(){
   const N=6; const yms=[]; for(let i=N-1;i>=0;i--) yms.push(shiftYm(S.ym,-i));
   const data=yms.map(ym=>({ym,...totals(S.space,ym)}));
   const sel=S.repSel && yms.includes(S.repSel)?S.repSel:S.ym;
-  const max=Math.max(1,...data.map(d=>Math.max(d.inc,d.exp)));
-  const step=niceStep(max/3); const top=Math.ceil(max/step)*step;
-  const W=600,H=230,Lp=52,R=8,T=12,B=28, pw=W-Lp-R, ph=H-T-B, gw=pw/N, bw=Math.min(26,gw*0.28);
-  const y=v=>T+ph-(v/top)*ph;
-  let g='';
-  for(let v=0; v<=top+1e-9; v+=step){ g+=`<line class="gr" x1="${Lp}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${Lp-8}" y="${y(v)+4}" text-anchor="end">${compact(v)}</text>`; }
-  data.forEach((d,i)=>{
-    const cx=Lp+gw*i+gw/2;
-    if(d.ym===sel) g+=`<rect class="sel" x="${Lp+gw*i+4}" y="${T}" width="${gw-8}" height="${ph}" rx="8"/>`;
-    const bar=(x,v,c)=>{ if(v<=0) return ''; const h=Math.max(2,(v/top)*ph); const r=Math.min(4,h/2); const yy=T+ph-h; return `<path d="M${x},${T+ph} V${yy+r} Q${x},${yy} ${x+r},${yy} H${x+bw-r} Q${x+bw},${yy} ${x+bw},${yy+r} V${T+ph} Z" fill="${c}"/>`; };
-    g+=bar(cx-bw-1,d.inc,'var(--inc)')+bar(cx+1,d.exp,'var(--exp)');
-    const m=Number(d.ym.slice(5))-1;
-    g+=`<text class="ax" x="${cx}" y="${H-8}" text-anchor="middle" ${d.ym===sel?'style="fill:var(--ink);font-weight:600"':''}>${MONTHS_S[m]}</text>`;
-    g+=`<rect class="hit" data-ym="${d.ym}" x="${Lp+gw*i}" y="0" width="${gw}" height="${H}"><title>${monthTitle(d.ym)}: доходы ${money(d.inc)}, расходы ${money(d.exp)}</title></rect>`;
-  });
   const sd=data.find(d=>d.ym===sel);
-  const kind=S.repKind;
-  const sums={}; let tot=0;
-  for(const t of allTx()){ if(t.space!==S.space||ymOf(t.d)!==sel||t.t!==kind) continue; sums[t.c]=(sums[t.c]||0)+t.a; tot+=t.a; }
-  const rows=Object.entries(sums).sort((a,b)=>b[1]-a[1]);
-  const mx=rows.length?rows[0][1]:1;
+  const W=380,H=210,Lp=56,R=8,T=12,B=26, pw=W-Lp-R, ph=H-T-B, gw=pw/N;
+  const mLabel=MONTHS_S[Number(sel.slice(5))-1];
+
+  /* --- карточка 1: доходы и расходы --- */
+  const v1=S.rv1; let body1='';
+  const tipLine=`<div class="tip"><span style="text-transform:capitalize">${monthTitle(sel)}</span><span>Доходы <b class="num">${money(sd.inc)}</b></span><span>Расходы <b class="num">${money(sd.exp)}</b></span><span>Итог <b class="num">${money(sd.inc-sd.exp)}</b></span></div>`;
+  const ttl=ym=>{ const d=data.find(x=>x.ym===ym); return `${monthTitle(ym)}: доходы ${money(d.inc)}, расходы ${money(d.exp)}`; };
+  if(v1==='pie'){
+    body1 = (sd.inc+sd.exp)>0
+      ? `<div class="pie-wrap">${donut([{v:sd.inc,color:'var(--inc)',title:'Доходы: '+money(sd.inc)},{v:sd.exp,color:'var(--exp)',title:'Расходы: '+money(sd.exp)}], ['Итог · '+mLabel, (sd.inc-sd.exp>0?'+':'')+money(sd.inc-sd.exp)])}
+         ${legendRows([{color:'var(--inc)',name:'Доходы',v:sd.inc,pct:Math.round(sd.inc/(sd.inc+sd.exp)*100)},{color:'var(--exp)',name:'Расходы',v:sd.exp,pct:Math.round(sd.exp/(sd.inc+sd.exp)*100)}])}</div>
+         <div class="note">Месяц выбирается стрелками вверху экрана.</div>`
+      : `<div class="note">В ${monthTitle(sel)} пока нет ни доходов, ни расходов.</div>`;
+  } else {
+    const max=Math.max(1,...data.map(d=>Math.max(d.inc,d.exp)));
+    const step=niceStep(max/3); const top=Math.ceil(max/step)*step;
+    const {g:frame,y}=axisFrame(W,H,Lp,R,T,B,top,step,yms,sel,gw);
+    let g=selBand(Lp,T,ph,gw,yms.indexOf(sel))+frame;
+    if(v1==='line'){
+      const pi=data.map((d,i)=>[Lp+gw*i+gw/2, y(d.inc)]), pe=data.map((d,i)=>[Lp+gw*i+gw/2, y(d.exp)]);
+      g+=`<path d="${linePath(pi)}" fill="none" stroke="var(--inc)" stroke-width="2.2" stroke-linejoin="round"/>`;
+      g+=`<path d="${linePath(pe)}" fill="none" stroke="var(--exp)" stroke-width="2.2" stroke-dasharray="7 5" stroke-linejoin="round"/>`;
+      pi.forEach(p=>g+=marker(p[0],p[1],'o','var(--inc)')); pe.forEach(p=>g+=marker(p[0],p[1],'sq','var(--exp)'));
+    } else {
+      const bw=Math.min(18,gw*0.3);
+      data.forEach((d,i)=>{ const cx=Lp+gw*i+gw/2;
+        const bar=(x,v,c)=>{ if(v<=0) return ''; const h=Math.max(2,(v/top)*ph); const r=Math.min(4,h/2); const yy=T+ph-h; return `<path d="M${x},${T+ph} V${yy+r} Q${x},${yy} ${x+r},${yy} H${x+bw-r} Q${x+bw},${yy} ${x+bw},${yy+r} V${T+ph} Z" fill="${c}"/>`; };
+        g+=bar(cx-bw-1,d.inc,'var(--inc)')+bar(cx+1,d.exp,'var(--exp)'); });
+    }
+    g+=hitBands(Lp,H,gw,yms,ttl);
+    body1=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Доходы и расходы за ${N} месяцев">${g}</svg></div>${tipLine}`;
+  }
+  const leg1 = v1==='line'
+    ? `<div class="legend"><span><svg width="22" height="10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--inc)" stroke-width="2.2"/><circle cx="11" cy="5" r="3.5" fill="var(--inc)"/></svg>Доходы</span><span><svg width="22" height="10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--exp)" stroke-width="2.2" stroke-dasharray="5 3"/><rect x="7.5" y="1.5" width="7" height="7" rx="1" fill="var(--exp)"/></svg>Расходы</span></div>`
+    : v1==='bar' ? `<div class="legend"><span><i style="background:var(--inc)"></i>Доходы</span><span><i style="background:var(--exp)"></i>Расходы</span></div>` : '';
+
+  /* --- карточка 2: по категориям --- */
+  const kind=S.repKind, v2=S.rv2;
+  const catName=c=>esc(catById(c)?.name||'Без категории');
+  const sumsFor=ym=>{ const s={}; for(const t of allTx()){ if(t.space!==S.space||ymOf(t.d)!==ym||t.t!==kind) continue; s[t.c]=(s[t.c]||0)+t.a; } return s; };
+  const selSums=sumsFor(sel); const tot=Object.values(selSums).reduce((a,b)=>a+b,0);
+  const rows=Object.entries(selSums).sort((a,b)=>b[1]-a[1]);
+  const empty2=`<div class="note">За ${monthTitle(sel)} ${kind==='exp'?'расходов':'доходов'} нет.</div>`;
+  let body2='';
+  if(v2==='pie'){
+    if(!rows.length) body2=empty2; else {
+      const topR=rows.slice(0,5), rest=rows.slice(5).reduce((s,r)=>s+r[1],0);
+      const items=topR.map(([c,v],i)=>({color:SLOTS[i], icon:catIcon(catById(c),14), name:catName(c), v, pct:Math.round(v/tot*100)}));
+      if(rest>0) items.push({color:'var(--c-other)', icon:iconSvg('dots',14), name:`Остальное (${rows.length-5})`, v:rest, pct:Math.round(rest/tot*100)});
+      body2=`<div class="pie-wrap">${donut(items.map(it=>({v:it.v,color:it.color,title:it.name.replace(/<[^>]+>/g,'')+': '+money(it.v)})), [(kind==='exp'?'Расходы':'Доходы')+' · '+mLabel, money(tot)])}${legendRows(items)}</div>`;
+    }
+  } else if(v2==='line'){
+    const per=yms.map(sumsFor); const totals6={}; per.forEach(s=>{ for(const k in s) totals6[k]=(totals6[k]||0)+s[k]; });
+    const ranked=Object.entries(totals6).sort((a,b)=>b[1]-a[1]).slice(0,5).map(r=>r[0]);
+    if(!ranked.length) body2=`<div class="note">За последние ${N} месяцев ${kind==='exp'?'расходов':'доходов'} нет.</div>`; else {
+      const max=Math.max(1,...per.flatMap(s=>ranked.map(c=>s[c]||0)));
+      const step=niceStep(max/3); const top=Math.ceil(max/step)*step;
+      const {g:frame,y}=axisFrame(W,H,Lp,R,T,B,top,step,yms,sel,gw);
+      let g=selBand(Lp,T,ph,gw,yms.indexOf(sel))+frame;
+      ranked.forEach((c,ci)=>{ const pts=per.map((s,i)=>[Lp+gw*i+gw/2, y(s[c]||0)]);
+        g+=`<path d="${linePath(pts)}" fill="none" stroke="${SLOTS[ci]}" stroke-width="2.2" stroke-linejoin="round"/>`;
+        pts.forEach(p=>g+=`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${SLOTS[ci]}" stroke="var(--surface)" stroke-width="2"/>`); });
+      g+=hitBands(Lp,H,gw,yms,ym=>{ const s=per[yms.indexOf(ym)]; return monthTitle(ym)+': '+ranked.map(c=>(catById(c)?.name||'Без категории')+' '+money(s[c]||0)).join(', '); });
+      const selS=per[yms.indexOf(sel)];
+      body2=`<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Категории по месяцам">${g}</svg></div>
+        <div class="note" style="text-transform:none">Топ-${ranked.length} категорий за ${N} месяцев. Значения — за <span style="text-transform:capitalize">${monthTitle(sel)}</span>:</div>
+        ${legendRows(ranked.map((c,i)=>({color:SLOTS[i], icon:catIcon(catById(c),14), name:catName(c), v:selS[c]||0})))}`;
+    }
+  } else {
+    const mx=rows.length?rows[0][1]:1;
+    body2 = rows.length ? `<div class="brk">${rows.map(([c,v])=>`<div class="it ic-it"><span class="cat-ic" style="background:${catColor(c)}">${catIcon(catById(c),16)}</span><span class="nm">${catName(c)}</span><span class="vl num">${money(v)}<small>${Math.round(v/tot*100)}%</small></span><div class="bar"><i style="width:${(v/mx*100).toFixed(1)}%"></i></div></div>`).join('')}</div>` : empty2;
+  }
+
   const b=balances(); const accs=cfg().accounts.filter(a=>a.space===S.space&&!a.archived);
   return wrapCol(`
-  <div class="card"><div class="card-h"><h3>Доходы и расходы</h3><div class="legend"><span><i style="background:var(--inc)"></i>Доходы</span><span><i style="background:var(--exp)"></i>Расходы</span></div></div>
-    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Доходы и расходы за ${N} месяцев">${g}</svg></div>
-    <div class="tip"><span style="text-transform:capitalize">${monthTitle(sel)}</span><span>Доходы <b class="num">${money(sd.inc)}</b></span><span>Расходы <b class="num">${money(sd.exp)}</b></span><span>Итог <b class="num">${money(sd.inc-sd.exp)}</b></span></div>
+  <div class="card"><div class="card-h"><h3>Доходы и расходы</h3>${leg1}</div>
+    ${viewSeg('data-v1', v1)}
+    ${body1}
   </div>
-  <div class="card"><div class="card-h"><h3>По категориям · ${MONTHS_S[Number(sel.slice(5))-1]}</h3>
+  <div class="card"><div class="card-h"><h3>По категориям · ${mLabel}</h3>
     <div class="seg"><button data-kind="exp" aria-pressed="${kind==='exp'}">Расходы</button><button data-kind="inc" aria-pressed="${kind==='inc'}">Доходы</button></div></div>
-    ${rows.length?`<div class="brk">${rows.map(([c,v])=>`<div class="it"><span class="nm">${esc(catById(c)?.name||'Без категории')}</span><span class="vl num">${money(v)}<small>${Math.round(v/tot*100)}%</small></span><div class="bar"><i style="width:${(v/mx*100).toFixed(1)}%"></i></div></div>`).join('')}</div>`:`<div class="note">За этот месяц ${kind==='exp'?'расходов':'доходов'} нет.</div>`}
+    ${viewSeg('data-v2', v2)}
+    ${body2}
   </div>
   <div class="card"><h3>Остатки на счетах</h3><div class="brk">${accs.map(a=>`<div class="it"><span class="nm">${esc(a.name)}</span><span class="vl num">${money(b[a.id]||0)}</span></div>`).join('')||'<div class="note">Счетов нет — добавьте в настройках.</div>'}</div></div>`);
 }
@@ -308,7 +457,7 @@ function renderSet(){
     <button class="add" data-addacc>+ Добавить счёт</button>
   </div>
   ${['exp','inc'].map(t=>`<div class="card"><h3>Категории ${t==='exp'?'расходов':'доходов'} · ${SPACES[S.space]}</h3>
-    <div class="set-list">${cats(t).map(({x,i})=>`<div class="set-row cat"><input class="inp" id="cat-${x.id}" data-cat="${i}" value="${esc(x.name)}" aria-label="Название категории"><button class="del" data-delcat="${i}" aria-label="Удалить категорию" title="Удалить">✕</button></div>`).join('')}</div>
+    <div class="set-list">${cats(t).map(({x,i})=>`<div class="set-row cat"><button class="cat-ic big" data-pickicon="${i}" style="background:${catColor(x.id)}" aria-label="Сменить иконку" title="Сменить иконку">${catIcon(x,20)}</button><input class="inp" id="cat-${x.id}" data-cat="${i}" value="${esc(x.name)}" aria-label="Название категории"><button class="del" data-delcat="${i}" aria-label="Удалить категорию" title="Удалить">✕</button></div>`).join('')}</div>
     <button class="add" data-addcat="${t}">+ Добавить категорию</button></div>`).join('')}
   <div class="card"><h3>Аккаунт и данные</h3>
     <div class="note">Вы вошли как <b>${esc(AUTH?.user?.email||'')}</b>. Записи синхронизируются между всеми устройствами, где вы вошли, и работают без интернета.</div>
@@ -321,6 +470,18 @@ function renderSet(){
     </div>
   </div>
   <div class="note" style="text-align:center">MoneyMoney · версия ${esc(window.MM_VERSION||'1')}</div>`);
+}
+
+/* ---------- выбор иконки категории ---------- */
+let P=null;
+function openIconPicker(idx){
+  const cat=cfg().cats[idx]; if(!cat) return; P=idx; F=null;
+  const cur=iconKeyFor(cat), col=catColor(cat.id);
+  $('#sheet-in').innerHTML=`<div class="grab"></div>
+    <div class="sheet-head"><b style="font-size:17px">Иконка: ${esc(cat.name)}</b><button class="iconbtn" data-close aria-label="Закрыть">✕</button></div>
+    <div class="icon-grid">${Object.entries(ICONS).map(([k,v])=>`<button class="icon-opt" data-icon="${k}" aria-pressed="${k===cur}" title="${v.t}"><span class="cat-ic big" style="background:${k===cur?col:'var(--surface-2)'};color:${k===cur?'#fff':'var(--ink)'}">${iconSvg(k,20)}</span><span>${v.t}</span></button>`).join('')}</div>`;
+  $('#scrim').hidden=false; $('#sheet').hidden=false;
+  requestAnimationFrame(()=>{ $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); });
 }
 
 /* ---------- sheet (quick entry) ---------- */
@@ -340,6 +501,7 @@ function openSheet(edit){
   renderSheet(true);
 }
 function closeSheet(){
+  P=null;
   $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on');
   F=null;
   setTimeout(()=>{ if(!F){ $('#scrim').hidden=true; $('#sheet').hidden=true; } },220);
@@ -378,7 +540,7 @@ function renderSheet(focus){
       <div class="amount"><input id="f-amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(F.amountStr)}" aria-label="Сумма"><span>₽</span></div>
       <div class="hint num" id="f-hint">${expr?'= '+money(amt):(F.editing?'':SPACES[sp])}</div>
     </div>
-    ${F.t!=='tr'?`<div><div class="field-l">Категория</div><div class="chips">${cats.map(x=>`<button class="chip" data-c="${x.id}" aria-pressed="${F.c===x.id}"><span class="sw" style="background:${catColor(x.id)}"></span>${esc(x.name)}</button>`).join('')||'<span class="note">Нет категорий — добавьте в настройках.</span>'}</div></div>`:''}
+    ${F.t!=='tr'?`<div><div class="field-l">Категория</div><div class="chips">${cats.map(x=>`<button class="chip" data-c="${x.id}" aria-pressed="${F.c===x.id}"><span class="chip-ic" style="color:${catColor(x.id)}">${catIcon(x,16)}</span>${esc(x.name)}</button>`).join('')||'<span class="note">Нет категорий — добавьте в настройках.</span>'}</div></div>`:''}
     <div><div class="field-l">${F.t==='tr'?'Откуда':'Счёт'}</div><div class="chips">${accsSp.map(a=>`<button class="chip" data-acc="${a.id}" aria-pressed="${F.acc===a.id}">${esc(a.name)}</button>`).join('')||'<span class="note">Нет счетов — добавьте в настройках.</span>'}</div></div>
     ${F.t==='tr'?`<div><div class="field-l">Куда</div><div class="chips">${allAccs.filter(a=>a.id!==F.acc).map(a=>`<button class="chip" data-to="${a.id}" aria-pressed="${F.to===a.id}">${esc(a.name)}${a.space!==sp?` <small>${SPACES[a.space]}</small>`:''}</button>`).join('')}</div></div>`:''}
     <div><div class="field-l">Дата</div><div class="drow">
@@ -522,6 +684,11 @@ document.addEventListener('click', e=>{
   if(ds.edit){ const tx=L.tx[ds.edit]; if(tx && !tx.deleted) openSheet(tx); return; }
   if(ds.ym){ S.repSel=ds.ym; render(); return; }
   if(ds.kind){ S.repKind=ds.kind; render(); return; }
+  if(ds.v1){ S.rv1=ds.v1; ls.set('rv1',S.rv1); render(); return; }
+  if(ds.v2){ S.rv2=ds.v2; ls.set('rv2',S.rv2); render(); return; }
+  if(ds.pickicon!==undefined){ openIconPicker(+ds.pickicon); return; }
+  if(ds.icon && P!==null){ const c=structuredClone(cfg()); c.cats[P].icon=ds.icon; P=null; closeSheet(); setConfig(c); return; }
+  if(P!==null && 'close' in ds){ P=null; closeSheet(); return; }
   if(F && t.closest('#sheet')){
     if('close' in ds){ closeSheet(); return; }
     if(ds.t){ F.t=ds.t; F.c=''; if(ds.t!=='tr') F.to=''; renderSheet(); return; }
