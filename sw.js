@@ -1,6 +1,6 @@
 // MoneyMoney service worker: приложение открывается и без интернета.
 // Файлы приложения всегда сверяются с сервером (cache:'no-cache'), поэтому обновления приходят сразу.
-const VERSION = 'mm-v9';
+const VERSION = 'mm-v10';
 const CORE = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png'];
 self.addEventListener('install', e => {
@@ -19,4 +19,19 @@ self.addEventListener('fetch', e => {
   } else if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => { const cp = res.clone(); caches.open(VERSION).then(c => c.put(req, cp)); return res; })));
   }
+});
+
+// Push-уведомления о платежах
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = {body: e.data && e.data.text()}; }
+  e.waitUntil(self.registration.showNotification(d.title || 'MoneyMoney', {
+    body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || 'mm-remind', data: {url: d.url || './'}
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({type: 'window', includeUncontrolled: true}).then(ws => {
+    for (const w of ws) { if ('focus' in w) return w.focus(); }
+    return clients.openWindow((e.notification.data && e.notification.data.url) || './');
+  }));
 });

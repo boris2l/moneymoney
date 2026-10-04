@@ -230,3 +230,7 @@ body{overflow-x:clip}
 .rec-grid{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;align-items:end}
 .rec-grid .drow .inp{min-width:0}
 select.inp{appearance:auto}
+/* v1.6: напоминания */
+.np-time{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.np-time .field-l{margin:0}
+.np-time select{width:auto;min-width:110px}

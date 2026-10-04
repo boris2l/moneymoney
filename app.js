@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.5';
+window.MM_VERSION='1.6';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -458,6 +458,7 @@ function renderSet(){
     <button class="add" data-addacc>+ Добавить счёт</button>
   </div>
   ${renderRecSettings()}
+  ${renderNotifySettings()}
   ${['exp','inc'].map(t=>`<div class="card"><h3>Категории ${t==='exp'?'расходов':'доходов'} · ${SPACES[S.space]}</h3>
     <div class="set-list">${cats(t).map(({x,i})=>`<div class="set-row cat"><button class="cat-ic big" data-pickicon="${i}" style="background:${catColor(x.id)}" aria-label="Сменить иконку" title="Сменить иконку">${catIcon(x,20)}</button><input class="inp" id="cat-${x.id}" data-cat="${i}" value="${esc(x.name)}" aria-label="Название категории"><button class="del" data-delcat="${i}" aria-label="Удалить категорию" title="Удалить">✕</button></div>`).join('')}</div>
     <button class="add" data-addcat="${t}">+ Добавить категорию</button></div>`).join('')}
@@ -489,6 +490,85 @@ function openIconPicker(idx){
     <div class="icon-grid">${Object.entries(ICONS).map(([k,v])=>`<button class="icon-opt" data-icon="${k}" aria-pressed="${k===cur}" title="${v.t}"><span class="cat-ic big" style="background:${k===cur?col:'var(--surface-2)'};color:${k===cur?'#fff':'var(--ink)'}">${iconSvg(k,20)}</span><span>${v.t}</span></button>`).join('')}</div>`;
   $('#scrim').hidden=false; $('#sheet').hidden=false;
   requestAnimationFrame(()=>{ $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); });
+}
+
+/* ---------- напоминания (push) ---------- */
+const NOTIFY_DEF={hour:10, d3:true, d1:true, d0:true, late:true, off:false};
+function notifyPrefs(){ return {...NOTIFY_DEF, ...(cfg().notify||{})}; }
+const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function isStandalone(){ try{ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(e){ return false; } }
+let PUSH={state:'checking', msg:''};
+function b64uToBytes(s){ const p='='.repeat((4-s.length%4)%4); const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b,c=>c.charCodeAt(0)); }
+async function pushRefresh(){
+  if(!CONF.VAPID_PUBLIC){ PUSH={state:'unsupported', msg:'Уведомления ещё не настроены.'}; }
+  else if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    PUSH = IS_IOS && !isStandalone() ? {state:'need-install'} : {state:'unsupported'};
+  } else if(Notification.permission==='denied'){ PUSH={state:'denied'}; }
+  else {
+    try{ const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription(); PUSH={state: sub?'on':'off'}; }
+    catch(e){ PUSH={state:'off'}; }
+  }
+  paintPush();
+}
+function pushStatusText(){
+  return ({checking:'Проверяю…',
+    on:'Включены на этом устройстве.',
+    off:'Выключены на этом устройстве.',
+    denied:'Уведомления запрещены в настройках системы. Разрешите их для MoneyMoney в Настройках iPhone/Mac → Уведомления, затем вернитесь сюда.',
+    'need-install':'На iPhone уведомления работают, только если MoneyMoney открыт с иконки на экране «Домой» (Поделиться → На экран Домой).',
+    unsupported:'Этот браузер не поддерживает уведомления. На Mac откройте MoneyMoney из Dock (Safari → Файл → Добавить в Dock), на iPhone — с экрана «Домой».'})[PUSH.state]||'';
+}
+function paintPush(){
+  const st=$('#push-status'); if(!st) return;
+  st.textContent=pushStatusText();
+  const on=$('#push-on'), off=$('#push-off'), test=$('#push-test');
+  if(on) on.hidden = PUSH.state!=='off';
+  if(off) off.hidden = PUSH.state!=='on';
+  if(test) test.hidden = PUSH.state!=='on';
+}
+async function pushEnable(){
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ await pushRefresh(); toast('Без разрешения уведомления не придут.'); return; }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64uToBytes(CONF.VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    await rest('mm_push?on_conflict=endpoint',{method:'POST', body:[{endpoint:j.endpoint, user_id:AUTH.user.id, p256dh:j.keys.p256dh, auth:j.keys.auth, tz:Intl.DateTimeFormat().resolvedOptions().timeZone||'', ua:navigator.userAgent.slice(0,200)}], headers:{Prefer:'resolution=merge-duplicates,return=minimal'}});
+    toast('Уведомления включены'); await pushRefresh();
+  }catch(e){ toast('Не получилось включить: '+(e.message||e)); await pushRefresh(); }
+}
+async function pushDisable(){
+  try{
+    const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription();
+    if(sub){ try{ await rest('mm_push?endpoint=eq.'+encodeURIComponent(sub.endpoint),{method:'DELETE'}); }catch(e){} await sub.unsubscribe(); }
+    toast('Уведомления выключены на этом устройстве'); await pushRefresh();
+  }catch(e){ toast('Не получилось: '+(e.message||e)); }
+}
+async function pushTest(){
+  try{
+    const t=await token();
+    const r=await fetch(SB_URL+'/functions/v1/mm-remind',{method:'POST', headers:{Authorization:'Bearer '+t, apikey:SB_KEY, 'Content-Type':'application/json'}, body:'{"test":true}'});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok && d.sent) toast('Отправлено — уведомление придёт через пару секунд');
+    else if(r.status===404) toast('Сервер напоминаний ещё не настроен.');
+    else toast('Не получилось отправить: '+(d.error||r.status));
+  }catch(e){ toast('Нет связи с сервером'); }
+}
+function renderNotifySettings(){
+  const p=notifyPrefs();
+  const chip=(k,l)=>`<button class="chip" data-np="${k}" aria-pressed="${!!p[k]}">${l}</button>`;
+  return `<div class="card"><h3>Напоминания о платежах</h3>
+    <div class="note">Уведомление об обязательных платежах приходит в выбранное время. Настройки общие для всех ваших устройств, а включить уведомления нужно на каждом устройстве.</div>
+    <div class="note" id="push-status">${pushStatusText()}</div>
+    <div class="set-actions">
+      <button class="btn" id="push-on" data-pushon ${PUSH.state==='off'?'':'hidden'}>Включить уведомления на этом устройстве</button>
+      <button class="btn ghost" id="push-test" data-pushtest ${PUSH.state==='on'?'':'hidden'}>Отправить тестовое</button>
+      <button class="btn ghost" id="push-off" data-pushoff ${PUSH.state==='on'?'':'hidden'}>Выключить на этом устройстве</button>
+    </div>
+    <div><div class="field-l">Когда напоминать</div><div class="chips">${chip('d3','За 3 дня')}${chip('d1','За 1 день')}${chip('d0','В день платежа')}${chip('late','При просрочке')}</div></div>
+    <label class="np-time"><span class="field-l">Во сколько</span><select class="inp" id="np-hour">${Array.from({length:24},(_,h)=>`<option value="${h}" ${Number(p.hour)===h?'selected':''}>${pad(h)}:00</option>`).join('')}</select></label>
+  </div>`;
 }
 
 /* ---------- обязательные платежи ---------- */
@@ -863,6 +943,10 @@ document.addEventListener('click', e=>{
     }
     return;
   }
+  if('pushon' in ds){ pushEnable(); return; }
+  if('pushoff' in ds){ pushDisable(); return; }
+  if('pushtest' in ds){ pushTest(); return; }
+  if(ds.np){ const c=structuredClone(cfg()); c.notify={...notifyPrefs(), [ds.np]:!notifyPrefs()[ds.np]}; setConfig(c); return; }
   if('syncnow' in ds){ sync(); return; }
   if('forceupdate' in ds){ forceUpdate(); return; }
   if('import' in ds){ $('#import-file').click(); return; }
@@ -896,7 +980,7 @@ function recInput(e){
   else return false;
   recEditorRefresh(); return true;
 }
-document.addEventListener('change', e=>{ recInput(e); });
+document.addEventListener('change', e=>{ if(e.target.id==='np-hour'){ const c=structuredClone(cfg()); c.notify={...notifyPrefs(), hour:Number(e.target.value)}; setConfig(c); toast('Буду напоминать в '+pad(Number(e.target.value))+':00'); return; } recInput(e); });
 document.addEventListener('input', e=>{
   if(recInput(e)) return;
   const t=e.target;
@@ -956,5 +1040,6 @@ function toast(msg){ const el=$('#toast'); el.textContent=msg; el.hidden=false; 
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 if(AUTH && AUTH.user && AUTH.user.id) showMain(); else showLogin('');
 setTimeout(checkLatest, 1500);
+setTimeout(pushRefresh, 800);
 if(location.search.includes('u=')) history.replaceState(null,'',location.pathname);
 })();
