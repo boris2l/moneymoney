@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.3.3';
+window.MM_VERSION='1.4';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';

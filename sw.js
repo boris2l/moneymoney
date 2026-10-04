@@ -1,6 +1,6 @@
 // MoneyMoney service worker: приложение открывается и без интернета.
 // Файлы приложения всегда сверяются с сервером (cache:'no-cache'), поэтому обновления приходят сразу.
-const VERSION = 'mm-v7';
+const VERSION = 'mm-v8';
 const CORE = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png'];
 self.addEventListener('install', e => {
