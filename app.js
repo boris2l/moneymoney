@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.3.2';
+window.MM_VERSION='1.3.3';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -469,6 +469,11 @@ function renderSet(){
       <button class="btn danger" data-logout>Выйти</button>
     </div>
   </div>
+  <div class="card"><h3>Приложение</h3>
+    <div class="note" id="upd-status">${updStatusText()}</div>
+    <div class="set-actions"><button class="btn ghost" data-forceupdate>Обновить принудительно</button></div>
+    <div class="note">Если новая версия не появилась сама: кнопка заново скачает приложение и перезапустит его. Записи не пропадут.</div>
+  </div>
   <div class="note" style="text-align:center">MoneyMoney · версия ${esc(window.MM_VERSION||'1')}</div>`);
 }
 
@@ -704,6 +709,7 @@ document.addEventListener('click', e=>{
     return;
   }
   if('syncnow' in ds){ sync(); return; }
+  if('forceupdate' in ds){ forceUpdate(); return; }
   if('import' in ds){ $('#import-file').click(); return; }
   if('export' in ds){ exportData(); return; }
   if('logout' in ds){
@@ -748,8 +754,34 @@ $('#scrim').addEventListener('click', closeSheet);
 $('#import-file').addEventListener('change', e=>{ const f=e.target.files[0]; e.target.value=''; if(f) importFile(f); });
 window.addEventListener('online', ()=>sync());
 window.addEventListener('offline', ()=>setSync('off'));
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') sync(); });
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ sync(); checkLatest(); } });
 setInterval(()=>{ if(document.visibilityState==='visible') sync(); }, 60000);
+
+/* ---------- обновления приложения ---------- */
+S.latest=null;
+function updStatusText(){
+  if(!S.latest) return `Установлена версия ${window.MM_VERSION}.`;
+  return S.latest===window.MM_VERSION ? `Установлена последняя версия ${window.MM_VERSION}.` : `Установлена версия ${window.MM_VERSION}, доступна ${S.latest}.`;
+}
+async function checkLatest(){
+  try{
+    const r=await fetch('app.js?check='+Date.now(),{cache:'no-store'}); const t=await r.text();
+    const m=t.match(/MM_VERSION='([^']+)'/); if(!m) return;
+    S.latest=m[1]; paintUpd();
+  }catch(e){}
+}
+function paintUpd(){
+  const b=$('#upd'); if(b){ const show=S.latest && S.latest!==window.MM_VERSION; b.hidden=!show; if(show) $('#upd-v').textContent=S.latest; }
+  const st=$('#upd-status'); if(st) st.textContent=updStatusText();
+}
+async function forceUpdate(){
+  toast('Обновляю…');
+  try{ if(pendingCount() && navigator.onLine!==false) await sync(); }catch(e){}
+  try{ await idb.set('state', L); }catch(e){}
+  try{ if(navigator.serviceWorker){ const regs=await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.unregister())); } }catch(e){}
+  try{ if(window.caches){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+  location.replace(location.pathname+'?u='+Date.now());
+}
 
 let toastT=null;
 function toast(msg){ const el=$('#toast'); el.textContent=msg; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true,2600); }
@@ -757,4 +789,6 @@ function toast(msg){ const el=$('#toast'); el.textContent=msg; el.hidden=false; 
 /* ---------- boot ---------- */
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 if(AUTH && AUTH.user && AUTH.user.id) showMain(); else showLogin('');
+setTimeout(checkLatest, 1500);
+if(location.search.includes('u=')) history.replaceState(null,'',location.pathname);
 })();

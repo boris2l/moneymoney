@@ -209,3 +209,6 @@ input,select,textarea{font-size:16px}
 .chart svg{overflow:visible}
 /* v1.3.1: прокрутка тачпадом в Safari на Mac — не делаем body контейнером прокрутки */
 body{overflow-x:clip}
+/* v1.3.3: плашка обновления */
+.upd{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:10px 12px;font-size:14px}
+.upd button{background:var(--accent);color:var(--on-accent);border-radius:10px;padding:8px 14px;font-weight:600}
