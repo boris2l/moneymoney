@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-window.MM_VERSION='1.3.1';
+window.MM_VERSION='1.3.2';
 const CONF = window.MM_CONFIG || {};
 const SB_URL = (CONF.SUPABASE_URL || '').replace(/\/+$/, '');
 const SB_KEY = CONF.SUPABASE_KEY || '';
@@ -434,14 +434,14 @@ function renderRep(){
 
   const b=balances(); const accs=cfg().accounts.filter(a=>a.space===S.space&&!a.archived);
   return wrapCol(`
-  <div class="card"><div class="card-h"><h3>Доходы и расходы</h3>${leg1}</div>
-    ${viewSeg('data-v1', v1)}
-    ${body1}
-  </div>
   <div class="card"><div class="card-h"><h3>По категориям · ${mLabel}</h3>
     <div class="seg"><button data-kind="exp" aria-pressed="${kind==='exp'}">Расходы</button><button data-kind="inc" aria-pressed="${kind==='inc'}">Доходы</button></div></div>
     ${viewSeg('data-v2', v2)}
     ${body2}
+  </div>
+  <div class="card"><div class="card-h"><h3>Доходы и расходы</h3>${leg1}</div>
+    ${viewSeg('data-v1', v1)}
+    ${body1}
   </div>
   <div class="card"><h3>Остатки на счетах</h3><div class="brk">${accs.map(a=>`<div class="it"><span class="nm">${esc(a.name)}</span><span class="vl num">${money(b[a.id]||0)}</span></div>`).join('')||'<div class="note">Счетов нет — добавьте в настройках.</div>'}</div></div>`);
 }
