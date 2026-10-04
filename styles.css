@@ -166,3 +166,5 @@ body{overscroll-behavior-y:none}
 .login .err{color:var(--exp);font-size:14px;min-height:20px}
 .linkbtn{color:var(--accent);font-weight:600;padding:6px 0;text-align:center}
 .set-actions{display:flex;flex-direction:column;gap:8px}
+.linkbtn.muted{color:var(--muted);font-weight:500}
+#l-code{letter-spacing:.3em;font-size:20px;text-align:center}
